@@ -1,8 +1,8 @@
-# NA_bonetools (North American Bone Tool and Temperature Ethnographic Analysis)
+# NA_bonetools (Thermoregulation predicts needle and awl use in North America: an ethnographic meta-analysis )
 ## DATA
-The only data available under the "DATA" folder is a .csv file, which summarizes the bone tools within the database associated with the publication.
+The csv files available under the "DATA" tab provides the opportunity to assess the relationship between perforator tool presence among ethnographic literature and the minimum temperature of the coldest month (MTCM) information associated with 59 North American Indigenous groups. The MTCM data was acquired through bioclimatic variable BIO6 from the WorldClim database. Ethnographic information was compiled from the eHRAF World Cultures database (https://ehrafworldcultures.yale.edu/). 
 
-Put some descriptions of the eHRAF database.
+The "another_final_table" csv provides the opportunity to assess the relationship between MTCM and the presence of all perforator tools within ethnographies considered for this study. The "a_final_table" csv allows for an assessment of the relationship between MTCM and the presence of needles compared with awls represented within eHRAF ethnographic sources. This csv also ensures that we can assess the relationship between MTCM and the proportion of perforator tools used for indivdiual use categories. Such categories include tattooing, basketry, clothing, ceremonies and rituals, piercing, shoe production, mythology, mat production, shelter, medical use, snowshoes, blankets, and fishing. The "Therm_table" csv considers the relationship between MTCM and the presence of those perforator tools within ethnographies used for strictly thermoregulation activities. This compares with the "Al_Table" csv which provides the data needed to run a GLM to examine the relationship between MTCM and those tools used for activities unrelated to thermoregulation.                            
 
 ## ANALYSIS
-The R-script "ANALYSIS.R" demonstrates all analyses needed to conduct logistic regressions and summary stats of the database.
+The R-script "ANALYSIS.R" demonstrates all analyses needed to conduct generalized linear models and summary stats of these data files.
