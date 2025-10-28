@@ -10,134 +10,182 @@ packages <-c('ggplot2','tidyr','dplyr') #These lines of code imports all of my p
 for(p in packages) if(p %in% rownames(installed.packages()) == F) { install.packages(p) }
 for(p in packages) suppressPackageStartupMessages(library(p,quietly=T,character.only=T))
 theme_set(theme_bw())
+#install.packages("spaMM")
+library("spaMM")
+library(dplyr)
+library(stringr)
 
-#READ IN THE FOLLOWING CSV FILES
-a_final_table<-read.csv("C:\\Users\\kenna\\OneDrive\\Documents\\Dissertation Research\\CHAPTER 1 INFO\\American Antiquity Submission Materials\\a_final_table.csv")
-another_final_table<-read.csv("C:\\Users\\kenna\\OneDrive\\Documents\\Dissertation Research\\CHAPTER 1 INFO\\American Antiquity Submission Materials\\another_final_table.csv")
-Al_table<-read.csv("Dissertation Research/CHAPTER 1 INFO/American Antiquity Submission Materials/Al_table.csv")
-Therm_table<-read.csv("C:\\Users\\kenna\\OneDrive\\Documents\\Dissertation Research\\CHAPTER 1 INFO\\American Antiquity Submission Materials\\Therm_table.csv")
+#Read in main data table
+mtable<-read.csv("C:\\Users\\mlitynsk\\OneDrive - University of Wyoming\\R for Ethno\\table1.csv")
 
-#THE GLM BELOW EXAMINES THE RELATIONSHIP BETWEEN ENVIRONMENTAL TEMPERATURE AND THE PRESENCE/ABSENCE OF ALL THOSE PERFORATOR TOOLS REFLECTED ETHNOGRAPHICALLY AMONG EHRAF.
-all_tools<-glm(Count~Temperature, data=another_final_table,family="binomial")
-summary(all_tools)
+# Fit the initial model - comparing all perforator tool ethnographic observations to MTCM data
+model<- fitme(Count ~ Temperature + Matern(1|LAT+LONG),family = "binomial", data = mtable)
+summary(model) #summarize the model results
 
-##THESE GLMS EXAMINE THE RELATIONSHIP BETWEEN ENVIRONMENTAL TEMPERATURE AND THE PRESENCE OF NEEDLES AND AWLS (CONSIDERED SEPARATELY)
 
-Needles_NA<-a_final_table[is.na(a_final_table$Tool_Type),]
-Needles_Sub<-subset(a_final_table,Tool_Type == "needle")
+##Eliminate the "Toolkit" category here
+ttable <- mtable[mtable$Usage != "Toolkit" | is.na(mtable$Usage), ]
+ttable$Therm_vs.Other<-NA #Add category with thermoregulation vs.alternative
+
+###This for loop generalizes individual activity types into categories - "Thermoregulation" and "Alternative"
+for (i in 1:nrow(ttable)) {
+  if (is.na(ttable$Usage[i]) == T) {
+    next
+  }else if(ttable$Usage[i] == "Clothing" |
+           ttable$Usage[i] == "Shoes" |
+           ttable$Usage[i] == "Shelter" |
+           ttable$Usage[i] == "Snowshoes" |
+           ttable$Usage[i] == "Bedding" |
+           ttable$Usage[i] == "Mats" |
+           ttable$Usage[i] == "Sled" |
+           ttable$Usage[i] == "Blankets "|
+           ttable$Usage[i] == "Blankets") {
+    ttable$Therm_vs.Other[i] <- "Thermoregulation"
+  } else {
+    ttable$Therm_vs.Other[i] <- "Alternative"
+  }
+}
+
+###The model below examines the relationship between ethnographic needles and awls used for "alternative" reasons and MTCM data
+Al_NA<-ttable[is.na(ttable$Therm_vs.Other),]
+Al_Sub<-subset(ttable,Therm_vs.Other == "Alternative")
+Al_Sub<-rbind(Al_Sub,Al_NA)
+model<- fitme(Count ~ Temperature + Matern(1|LAT+LONG),
+              family = "binomial",  # or "binomial" if Count is 0/1
+              data = Al_Sub)
+summary(model)
+
+
+##The model below examines the relationship between MTCM and ethnographically observed needles
+Needles_NA<-ttable[is.na(ttable$Tool_Type),]
+Needles_Sub<-subset(ttable,Tool_Type == "needle")
 Needles_Sub<-rbind(Needles_NA,Needles_Sub)
-need_glm<-glm(Count~Temperature,data=Needles_Sub,family="binomial")
-summary(need_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Needles_Sub,family="binomial")
+summary(model)
 
-Awls_NA<-a_final_table[is.na(a_final_table$Tool_Type),]
-Awls_Sub<-subset(a_final_table,Tool_Type == "awl")
+##The model below examines the relationship between MTCM and ethnographically observed awls 
+Awls_NA<-ttable[is.na(mtable$Tool_Type),]
+Awls_Sub<-subset(ttable,Tool_Type == "awl")
 Awls_Sub<-rbind(Awls_NA,Awls_Sub)
-awl_glm<-glm(Count~Temperature,data=Awls_Sub,family="binomial")
-summary(awl_glm) 
+model<-fitme(Count~Temperature + Matern(1|LAT+LONG),data=Awls_Sub,family="binomial")
+summary(model) 
 
-#THE FOLLOWING CODE SUBSETS THE DATA ACCORDING TO THE TOOLS USED ETHNOGRAPHICALLY FOR ACTIVITIES OUTSIDE THE REALM OF THERMOREGULATION. THE GLM EXAMINES THE RELATIONSHIP BETWEEN TEMPERATURE AND THOSE PERFORATOR TOOLS USED FOR SUCH ALTERNATIVE ACTIVITIES.
-Al_NA<-Al_table[is.na(Al_table$Therm_vs.Other),]
-Al_Sub<-subset(Al_table,Therm_vs.Other == "Alternative")
-Al_Bind<-rbind(Al_Sub,Al_NA)
-al_glm<-glm(Count~Temperature,data=Al_Bind,family="binomial")
-summary(al_glm) 
+##The model below examines the relationship between MTCM and only those tools associated with "thermoregulation" activities
+Thermo_NA<-ttable[is.na(ttable$Therm_vs.Other),]
+Thermo_Sub<-subset(ttable, Therm_vs.Other == "Thermoregulation")
+Thermo_Sub<-rbind(Thermo_Sub, Thermo_NA)
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Thermo_Sub,family="binomial")
+#therm_glm<-glm(Count~Temperature,data=Thermo_Sub,family="binomial")
+summary(model)
 
-##THIS GLM EXAMINES THE RELATIONSHIP BETWEEN TEMPERATURE AND THOSE PERFORATOR TOOLS USED FOR THERMOREGULATION 
-Thermo_NA<-Therm_table[is.na(Therm_table$Therm_vs.Other),]
-Thermo_Sub<-subset(Therm_table, Therm_vs.Other == "Thermoregulation")
-Thermo_Bind<-rbind(Thermo_Sub, Thermo_NA)
-therm_glm<-glm(Count~Temperature,data=Thermo_Bind,family="binomial")
-summary(therm_glm) 
+###########The remaining models evaluate individual activity types#####################
 
-###GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND TATTOOING##
-Tatt_NA<-a_final_table[is.na(a_final_table$Usage),]
-Tatt_Sub<-subset(a_final_table,Usage == "Tattooing")
+###FOR ONLY TATTOOING##
+Tatt_NA<-mtable[is.na(mtable$Usage),]
+Tatt_Sub<-subset(mtable,Usage == "Tattooing")
 Tatt_Sub<-rbind(Tatt_Sub,Tatt_NA)
-tatt_glm<-glm(Count~Temperature,data=Tatt_Sub,family="binomial")
-summary(tatt_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Tatt_Sub,family="binomial")
+#tatt_glm<-glm(Count~Temperature,data=Tatt_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND BASKETRY##
-Bask_NA<-a_final_table[is.na(a_final_table$Usage),]
-Bask_Sub<-subset(a_final_table,Usage == "Baskets")
+
+##BASKETRY##
+Bask_NA<-mtable[is.na(mtable$Usage),]
+Bask_Sub<-subset(mtable,Usage == "Baskets")
 Bask_Sub<-rbind(Bask_Sub,Bask_NA)
-bask_glm<-glm(Count~Temperature,data=Bask_Sub,family="binomial")
-summary(bask_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Bask_Sub,family="binomial")
+#bask_glm<-glm(Count~Temperature,data=Bask_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND CLOTHING##
-Cloth_NA<-a_final_table[is.na(a_final_table$Usage),]
-Cloth_Sub<-subset(a_final_table,Usage == "Clothing")
+##Clothing##
+Cloth_NA<-mtable[is.na(mtable$Usage),]
+Cloth_Sub<-subset(mtable,Usage == "Clothing")
 Cloth_Sub<-rbind(Cloth_Sub,Cloth_NA)
-cloth_glm<-glm(Count~Temperature,data=Cloth_Sub,family="binomial")
-summary(cloth_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Cloth_Sub,family="binomial")
+#cloth_glm<-glm(Count~Temperature,data=Cloth_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND CEREMONY/RITUAL CATEGORY##
-Cer_NA<-a_final_table[is.na(a_final_table$Usage),]
-Cer_Sub<-subset(a_final_table,Usage == "Ceremony or Ritual")
+
+##Ceremony or Ritual##
+Cer_NA<-mtable[is.na(mtable$Usage),]
+Cer_Sub<-subset(mtable,Usage == "Ceremony or Ritual")
 Cer_Sub<-rbind(Cer_Sub,Cer_NA)
-cer_glm<-glm(Count~Temperature,data=Cer_Sub,family="binomial")
-summary(cer_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Cer_Sub,family="binomial")
+#cer_glm<-glm(Count~Temperature,data=Cer_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND PIERCING##
-Pier_NA<-a_final_table[is.na(a_final_table$Usage),]
-Pier_Sub<-subset(a_final_table,Usage == "Piercing")
+##Piercing##
+Pier_NA<-mtable[is.na(mtable$Usage),]
+Pier_Sub<-subset(mtable,Usage == "Piercing")
 Pier_Sub<-rbind(Pier_Sub,Pier_NA)
-pier_glm<-glm(Count~Temperature,data=Pier_Sub,family="binomial")
-summary(pier_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Pier_Sub,family="binomial")
+#pier_glm<-glm(Count~Temperature,data=Pier_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND SHOES##
-Shoe_NA<-a_final_table[is.na(a_final_table$Usage),]
-Shoe_Sub<-subset(a_final_table,Usage == "Shoes")
+
+##Shoes##
+Shoe_NA<-mtable[is.na(mtable$Usage),]
+Shoe_Sub<-subset(mtable,Usage == "Shoes")
 Shoe_Sub<-rbind(Shoe_Sub,Shoe_NA)
-shoe_glm<-glm(Count~Temperature,data=Shoe_Sub,family="binomial")
-summary(shoe_glm)  
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Shoe_Sub,family="binomial")
+#shoe_glm<-glm(Count~Temperature,data=Shoe_Sub,family="binomial")
+summary(model)  
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND MYTHOLOGY##
-Myth_NA<-a_final_table[is.na(a_final_table$Usage),]
-Myth_Sub<-subset(a_final_table,Usage == "Mythology")
+
+##Mythology##
+Myth_NA<-mtable[is.na(mtable$Usage),]
+Myth_Sub<-subset(mtable,Usage == "Mythology")
 Myth_Sub<-rbind(Myth_Sub,Myth_NA)
-myth_glm<-glm(Count~Temperature,data=Myth_Sub,family="binomial")
-summary(myth_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Myth_Sub,family="binomial")
+#myth_glm<-glm(Count~Temperature,data=Myth_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND MATS##
-Mat_NA<-a_final_table[is.na(a_final_table$Usage),]
-Mat_Sub<-subset(a_final_table,Usage == "Mats")
+##Mats##
+Mat_NA<-mtable[is.na(mtable$Usage),]
+Mat_Sub<-subset(mtable,Usage == "Mats")
 Mat_Sub<-rbind(Mat_Sub,Mat_NA)
-mat_glm<-glm(Count~Temperature,data=Mat_Sub,family="binomial")
-summary(mat_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Mat_Sub,family="binomial")
+#mat_glm<-glm(Count~Temperature,data=Mat_Sub,family="binomial")
+summary(model)
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND SHELTER##
-Shel_NA<-a_final_table[is.na(a_final_table$Usage),]
-Shel_Sub<-subset(a_final_table,Usage == "Shelter")
+###Shelter
+Shel_NA<-mtable[is.na(mtable$Usage),]
+Shel_Sub<-subset(mtable,Usage == "Shelter")
 Shel_Sub<-rbind(Shel_Sub,Shel_NA)
-shel_glm<-glm(Count~Temperature,data=Shel_Sub,family="binomial")
-summary(shel_glm) 
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Shel_Sub,family="binomial")
+#shel_glm<-glm(Count~Temperature,data=Shel_Sub,family="binomial")
+summary(model) 
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND MEDICAL USE##
-Med_NA<-a_final_table[is.na(a_final_table$Usage),]
-Med_Sub<-subset(a_final_table,Usage == "Medical")
+###Medical
+Med_NA<-mtable[is.na(mtable$Usage),]
+Med_Sub<-subset(mtable,Usage == "Medical")
 Med_Sub<-rbind(Med_Sub,Med_NA)
-med_glm<-glm(Count~Temperature,data=Med_Sub,family="binomial")
-summary(med_glm)
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Med_Sub,family="binomial")
+#med_glm<-glm(Count~Temperature,data=Med_Sub,family="binomial")
+summary(model)
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND SNOWSHOES##
-Snow_NA<-a_final_table[is.na(a_final_table$Usage),]
-Snow_Sub<-subset(a_final_table,Usage == "Snowshoes")
+###Snowshoes
+Snow_NA<-mtable[is.na(mtable$Usage),]
+Snow_Sub<-subset(mtable,Usage == "Snowshoes")
 Snow_Sub<-rbind(Snow_Sub,Snow_NA)
-snow_glm<-glm(Count~Temperature,data=Snow_Sub,family="binomial")
-summary(snow_glm)
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Snow_Sub,family="binomial")
+#snow_glm<-glm(Count~Temperature,data=Snow_Sub,family="binomial")
+summary(model)
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND BLANKETS##
-Blank_NA<-a_final_table[is.na(a_final_table$Usage),]
-Blank_Sub<-subset(a_final_table,Usage == "Blankets ")
+
+###Blankets
+Blank_NA<-mtable[is.na(mtable$Usage),]
+Blank_Sub<-subset(mtable,Usage == "Blankets ")
 Blank_Sub<-rbind(Blank_Sub,Blank_NA)
-blank_glm<-glm(Count~Temperature,data=Blank_Sub,family="binomial")
-summary(blank_glm)
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Blank_Sub,family="binomial")
+#blank_glm<-glm(Count~Temperature,data=Blank_Sub,family="binomial")
+summary(model)
 
-##GLM FOR EXAMINING THE RELATIONSHIP BETWEEN TEMPERATURE AND FISHING##
-Fish_NA<-a_final_table[is.na(a_final_table$Usage),]
-Fish_Sub<-subset(a_final_table,Usage == "Fishing")
+
+##Fishing
+Fish_NA<-mtable[is.na(mtable$Usage),]
+Fish_Sub<-subset(mtable,Usage == "Fishing")
 Fish_Sub<-rbind(Fish_Sub,Fish_NA)
-fish_glm<-glm(Count~Temperature,data=Fish_Sub,family="binomial")
-summary(fish_glm)
-
-
+model<-fitme(Count~Temperature+Matern(1|LAT+LONG),data=Fish_Sub,family="binomial")
+#fish_glm<-glm(Count~Temperature,data=Fish_Sub,family="binomial")
+summary(model)
